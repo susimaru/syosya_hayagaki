@@ -58,6 +58,24 @@
       'audio-1.mp3', 'audio-2.mp3', 'audio-3.mp3',
       'audio-4.mp3', 'audio-5.mp3', 'audio-6.mp3'
     ];
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+      if (!('wakeLock' in navigator) || wakeLock) return;
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => { wakeLock = null; });
+      } catch (error) {
+        // 非対応ブラウザや省電力モードでは利用できないため、そのまま続行する。
+        console.info('画面の自動消灯を抑止できませんでした。', error);
+      }
+    }
+
+    async function releaseWakeLock() {
+      if (!wakeLock) return;
+      await wakeLock.release();
+      wakeLock = null;
+    }
 
     function wait(milliseconds) {
       return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -110,6 +128,8 @@
     async function startExam() {
       startButton.disabled = true;
       setTime(0);
+      // タップを起点に取得することで、対応端末では試験中の自動消灯を防ぐ。
+      void requestWakeLock();
       try {
         await playAudio(audioFiles[0]);
         await wait(3000);
@@ -127,11 +147,17 @@
         console.error(error);
         alert('音声ファイルを再生できませんでした。GitHub Pagesに audio-1.mp3 ～ audio-6.mp3 をアップロードしているか確認してください。');
       } finally {
+        await releaseWakeLock();
         startButton.disabled = false;
       }
     }
 
     startButton.addEventListener('click', startExam);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && startButton.disabled) {
+        void requestWakeLock();
+      }
+    });
   </script>
 </body>
 </html>
