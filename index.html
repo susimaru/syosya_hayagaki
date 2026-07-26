@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>硬筆書写検定 第一問 速書きタイマー</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #fff;
+      color: #111;
+      font-family: "Yu Gothic UI", "Hiragino Kaku Gothic ProN", sans-serif;
+    }
+    main { text-align: center; }
+    #timer {
+      margin: 0 0 36px;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: clamp(4.5rem, 20vw, 11rem);
+      font-variant-numeric: tabular-nums;
+      font-weight: 600;
+      letter-spacing: -0.08em;
+      line-height: 1;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 14px 46px;
+      background: #111;
+      color: #fff;
+      cursor: pointer;
+      font: inherit;
+      font-size: 1.25rem;
+      font-weight: 700;
+    }
+    button:hover:not(:disabled) { background: #333; }
+    button:focus-visible { outline: 3px solid #4b8df8; outline-offset: 3px; }
+    button:disabled { background: #a6a6a6; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+  <main>
+    <p id="timer" aria-live="off">00:00</p>
+    <button id="start" type="button">開始</button>
+  </main>
+
+  <script>
+    const startButton = document.getElementById('start');
+    const timer = document.getElementById('timer');
+
+    const scripts = {
+      introduction: 'これより硬筆書写技能検定試験　第一問、速書きを開始いたします。開始の掛け声をかけますので掛け声がありましたら、1分間問題をお読みください。1分経過後、再度こちらより声掛けします。声掛けがありましたら、問題を読むのをやめてください。その後、試験開始の掛け声がありましたら、解答を初めてください。',
+      read: 'それでは、問題をお読みください。',
+      stopReading: 'はい。問題を読むのをやめてください。',
+      putDownPen: '一旦ペンを置いてください。',
+      beginExam: 'それでは第一問、試験開始してください。',
+      finish: 'はい、それではペンを置いてください。試験官が答案用紙を回収しますので、そのままお待ちください。'
+    };
+
+    let voices = [];
+    let selectedVoice = null;
+    function loadVoices() { voices = speechSynthesis.getVoices(); }
+    loadVoices();
+    speechSynthesis.addEventListener('voiceschanged', loadVoices);
+
+    function japaneseFemaleVoice() {
+      const japanese = voices.filter(voice => /^ja(?:[-_]|$)/i.test(voice.lang));
+      return japanese.find(voice => /female|woman|女性|女声|haruka|kyoko|nanami|sayaka/i.test(voice.name))
+        || japanese[0]
+        || voices.find(voice => /female|woman|女性|女声/i.test(voice.name))
+        || null;
+    }
+
+    function speak(text) {
+      return new Promise(resolve => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ja-JP';
+        utterance.rate = 1;
+        utterance.pitch = 1.08;
+        if (selectedVoice) utterance.voice = selectedVoice;
+        utterance.onend = resolve;
+        utterance.onerror = resolve; // 音声非対応でもタイマー自体は進める
+        speechSynthesis.speak(utterance);
+      });
+    }
+
+    function wait(milliseconds) {
+      return new Promise(resolve => setTimeout(resolve, milliseconds));
+    }
+
+    function setTime(seconds) {
+      const minutes = Math.floor(seconds / 60);
+      const remainder = seconds % 60;
+      timer.textContent = `${String(minutes).padStart(2, '0')}:${String(remainder).padStart(2, '0')}`;
+    }
+
+    function runTimer(durationSeconds) {
+      return new Promise(resolve => {
+        const startedAt = performance.now();
+        let frame;
+        const tick = now => {
+          const elapsed = Math.min(durationSeconds, Math.floor((now - startedAt) / 1000));
+          setTime(elapsed);
+          if (elapsed >= durationSeconds) {
+            cancelAnimationFrame(frame);
+            resolve();
+            return;
+          }
+          frame = requestAnimationFrame(tick);
+        };
+        setTime(0);
+        frame = requestAnimationFrame(tick);
+      });
+    }
+
+    async function startExam() {
+      startButton.disabled = true;
+      speechSynthesis.cancel();
+      selectedVoice = japaneseFemaleVoice();
+      setTime(0);
+      try {
+        await speak(scripts.introduction);
+        await wait(3000);
+        await speak(scripts.read);
+        await runTimer(60);
+        await speak(scripts.stopReading);
+        await wait(2000);
+        await speak(scripts.putDownPen);
+        await wait(3000);
+        await speak(scripts.beginExam);
+        await runTimer(240);
+        await speak(scripts.finish);
+      } finally {
+        startButton.disabled = false;
+      }
+    }
+
+    startButton.addEventListener('click', startExam);
+  </script>
+</body>
+</html>
