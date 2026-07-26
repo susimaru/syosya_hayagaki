@@ -48,17 +48,16 @@
     <button id="start" type="button">開始</button>
   </main>
 
-  <audio id="audio-1" preload="auto" src="audio-1.mp3"></audio>
-  <audio id="audio-2" preload="auto" src="audio-2.mp3"></audio>
-  <audio id="audio-3" preload="auto" src="audio-3.mp3"></audio>
-  <audio id="audio-4" preload="auto" src="audio-4.mp3"></audio>
-  <audio id="audio-5" preload="auto" src="audio-5.mp3"></audio>
-  <audio id="audio-6" preload="auto" src="audio-6.mp3"></audio>
+  <audio id="player" preload="auto"></audio>
 
   <script>
     const startButton = document.getElementById('start');
     const timer = document.getElementById('timer');
-    const audio = [1, 2, 3, 4, 5, 6].map(number => document.getElementById(`audio-${number}`));
+    const player = document.getElementById('player');
+    const audioFiles = [
+      'audio-1.mp3', 'audio-2.mp3', 'audio-3.mp3',
+      'audio-4.mp3', 'audio-5.mp3', 'audio-6.mp3'
+    ];
 
     function wait(milliseconds) {
       return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -87,23 +86,24 @@
       });
     }
 
-    function playAudio(track) {
+    function playAudio(source) {
       return new Promise((resolve, reject) => {
-        track.pause();
-        track.currentTime = 0;
+        player.pause();
+        player.src = source;
+        player.load();
         const finish = () => {
-          track.onended = null;
-          track.onerror = null;
+          player.onended = null;
+          player.onerror = null;
           resolve();
         };
         const fail = () => {
-          track.onended = null;
-          track.onerror = null;
+          player.onended = null;
+          player.onerror = null;
           reject(new Error('音声ファイルを再生できませんでした。'));
         };
-        track.onended = finish;
-        track.onerror = fail;
-        track.play().catch(fail);
+        player.onended = finish;
+        player.onerror = fail;
+        player.play().catch(fail);
       });
     }
 
@@ -111,17 +111,17 @@
       startButton.disabled = true;
       setTime(0);
       try {
-        await playAudio(audio[0]);
+        await playAudio(audioFiles[0]);
         await wait(3000);
-        await playAudio(audio[1]);
+        await playAudio(audioFiles[1]);
         await runTimer(60);
-        await playAudio(audio[2]);
+        await playAudio(audioFiles[2]);
         await wait(2000);
-        await playAudio(audio[3]);
+        await playAudio(audioFiles[3]);
         await wait(3000);
-        await playAudio(audio[4]);
+        await playAudio(audioFiles[4]);
         await runTimer(240);
-        await playAudio(audio[5]);
+        await playAudio(audioFiles[5]);
         setTime(0);
       } catch (error) {
         console.error(error);
