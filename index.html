@@ -48,45 +48,17 @@
     <button id="start" type="button">開始</button>
   </main>
 
+  <audio id="audio-1" preload="auto" src="audio-1.mp3"></audio>
+  <audio id="audio-2" preload="auto" src="audio-2.mp3"></audio>
+  <audio id="audio-3" preload="auto" src="audio-3.mp3"></audio>
+  <audio id="audio-4" preload="auto" src="audio-4.mp3"></audio>
+  <audio id="audio-5" preload="auto" src="audio-5.mp3"></audio>
+  <audio id="audio-6" preload="auto" src="audio-6.mp3"></audio>
+
   <script>
     const startButton = document.getElementById('start');
     const timer = document.getElementById('timer');
-
-    const scripts = {
-      introduction: 'これより硬筆書写技能検定試験　第一問、速書きを開始いたします。開始の掛け声をかけますので掛け声がありましたら、1分間問題をお読みください。1分経過後、再度こちらより声掛けします。声掛けがありましたら、問題を読むのをやめてください。その後、試験開始の掛け声がありましたら、解答を初めてください。',
-      read: 'それでは、問題をお読みください。',
-      stopReading: 'はい。問題を読むのをやめてください。',
-      putDownPen: '一旦ペンを置いてください。',
-      beginExam: 'それでは第一問、試験開始してください。',
-      finish: 'はい、それではペンを置いてください。試験官が答案用紙を回収しますので、そのままお待ちください。'
-    };
-
-    let voices = [];
-    let selectedVoice = null;
-    function loadVoices() { voices = speechSynthesis.getVoices(); }
-    loadVoices();
-    speechSynthesis.addEventListener('voiceschanged', loadVoices);
-
-    function japaneseFemaleVoice() {
-      const japanese = voices.filter(voice => /^ja(?:[-_]|$)/i.test(voice.lang));
-      return japanese.find(voice => /female|woman|女性|女声|haruka|kyoko|nanami|sayaka/i.test(voice.name))
-        || japanese[0]
-        || voices.find(voice => /female|woman|女性|女声/i.test(voice.name))
-        || null;
-    }
-
-    function speak(text) {
-      return new Promise(resolve => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'ja-JP';
-        utterance.rate = 1;
-        utterance.pitch = 1.08;
-        if (selectedVoice) utterance.voice = selectedVoice;
-        utterance.onend = resolve;
-        utterance.onerror = resolve; // 音声非対応でもタイマー自体は進める
-        speechSynthesis.speak(utterance);
-      });
-    }
+    const audio = [1, 2, 3, 4, 5, 6].map(number => document.getElementById(`audio-${number}`));
 
     function wait(milliseconds) {
       return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -101,39 +73,59 @@
     function runTimer(durationSeconds) {
       return new Promise(resolve => {
         const startedAt = performance.now();
-        let frame;
         const tick = now => {
           const elapsed = Math.min(durationSeconds, Math.floor((now - startedAt) / 1000));
           setTime(elapsed);
           if (elapsed >= durationSeconds) {
-            cancelAnimationFrame(frame);
             resolve();
             return;
           }
-          frame = requestAnimationFrame(tick);
+          requestAnimationFrame(tick);
         };
         setTime(0);
-        frame = requestAnimationFrame(tick);
+        requestAnimationFrame(tick);
+      });
+    }
+
+    function playAudio(track) {
+      return new Promise((resolve, reject) => {
+        track.pause();
+        track.currentTime = 0;
+        const finish = () => {
+          track.onended = null;
+          track.onerror = null;
+          resolve();
+        };
+        const fail = () => {
+          track.onended = null;
+          track.onerror = null;
+          reject(new Error('音声ファイルを再生できませんでした。'));
+        };
+        track.onended = finish;
+        track.onerror = fail;
+        track.play().catch(fail);
       });
     }
 
     async function startExam() {
       startButton.disabled = true;
-      speechSynthesis.cancel();
-      selectedVoice = japaneseFemaleVoice();
       setTime(0);
       try {
-        await speak(scripts.introduction);
+        await playAudio(audio[0]);
         await wait(3000);
-        await speak(scripts.read);
+        await playAudio(audio[1]);
         await runTimer(60);
-        await speak(scripts.stopReading);
+        await playAudio(audio[2]);
         await wait(2000);
-        await speak(scripts.putDownPen);
+        await playAudio(audio[3]);
         await wait(3000);
-        await speak(scripts.beginExam);
+        await playAudio(audio[4]);
         await runTimer(240);
-        await speak(scripts.finish);
+        await playAudio(audio[5]);
+        setTime(0);
+      } catch (error) {
+        console.error(error);
+        alert('音声ファイルを再生できませんでした。GitHub Pagesに audio-1.mp3 ～ audio-6.mp3 をアップロードしているか確認してください。');
       } finally {
         startButton.disabled = false;
       }
